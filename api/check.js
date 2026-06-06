@@ -4,4 +4,4 @@ export default function handler(req, res) {
     supabaseUrlExiste: !!process.env.SUPABASE_URL,
     supabaseKeyExiste: !!process.env.SUPABASE_SERVICE_KEY
   });
-}
+}   
