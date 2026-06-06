@@ -1,15 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { setCors, getUserFromRequest } from "./_auth.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-function setCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
 
 export default async function handler(req, res) {
   setCors(res);
@@ -18,12 +13,19 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const user = getUserFromRequest(req);
+
+  if (!user) {
+    return res.status(401).json({ error: "Não autorizado." });
+  }
+
   if (req.method === "GET") {
     const { month } = req.query;
 
     let query = supabase
       .from("budgets")
       .select("*")
+      .eq("user_id", user.id)
       .order("month", { ascending: true });
 
     if (month) {
@@ -50,12 +52,13 @@ export default async function handler(req, res) {
       .from("budgets")
       .upsert(
         {
+          user_id: user.id,
           month,
           value: Number(value),
           updated_at: new Date().toISOString()
         },
         {
-          onConflict: "month"
+          onConflict: "user_id,month"
         }
       )
       .select()

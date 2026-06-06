@@ -1,15 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { setCors, getUserFromRequest } from "./_auth.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-function setCors(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
 
 export default async function handler(req, res) {
   setCors(res);
@@ -18,12 +13,19 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const user = getUserFromRequest(req);
+
+  if (!user) {
+    return res.status(401).json({ error: "Não autorizado." });
+  }
+
   if (req.method === "GET") {
     const { month } = req.query;
 
     let query = supabase
       .from("expenses")
       .select("*")
+      .eq("user_id", user.id)
       .order("date", { ascending: false });
 
     if (month) {
@@ -53,7 +55,15 @@ export default async function handler(req, res) {
 
     const { data, error } = await supabase
       .from("expenses")
-      .insert([{ name, value, category, date }])
+      .insert([
+        {
+          user_id: user.id,
+          name,
+          value,
+          category,
+          date
+        }
+      ])
       .select()
       .single();
 
@@ -74,7 +84,8 @@ export default async function handler(req, res) {
     const { error } = await supabase
       .from("expenses")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) {
       return res.status(500).json({ error: error.message });
